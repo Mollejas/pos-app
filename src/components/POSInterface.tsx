@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Product, Customer, Sale, SaleDetail } from '@/lib/types';
 import Scanner from './Scanner';
 import { generateTicket } from '@/lib/pdf';
@@ -17,6 +17,20 @@ export default function POSInterface() {
   const [customerSearchQuery, setCustomerSearchQuery] = useState('');
   const [showCustomerResults, setShowCustomerResults] = useState(false);
   const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
+
+  // State for Price Modal
+  const [showPriceModal, setShowPriceModal] = useState(false);
+  const [priceInputValue, setPriceInputValue] = useState('');
+  const [pendingProduct, setPendingProduct] = useState<Product | null>(null);
+  const [editingPriceCode, setEditingPriceCode] = useState<string | null>(null);
+  const priceInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    // Focus input when modal opens
+    if (showPriceModal && priceInputRef.current) {
+      setTimeout(() => priceInputRef.current?.focus(), 100);
+    }
+  }, [showPriceModal]);
 
   useEffect(() => {
     // Sync filtered customers with all customers initially
@@ -83,72 +97,77 @@ export default function POSInterface() {
     setSearchResults(results);
   };
 
+  const executeAddToCart = (product: Product, finalPrice: number) => {
+    setCart(prev => {
+      const existingIndex = prev.findIndex(item => item.product.code === product.code);
+      if (existingIndex >= 0) {
+        // Si ya existe, actualizamos cantidad
+        const newCart = [...prev];
+        const item = newCart[existingIndex];
+        
+        // Si el producto original tiene precio 0, actualizamos al último ingresado.
+        const priceToUpdate = product.price === 0 ? finalPrice : item.product.price;
+
+        newCart[existingIndex] = {
+          ...item,
+          quantity: item.quantity + 1,
+          product: { ...item.product, price: priceToUpdate }
+        };
+        return newCart;
+      }
+      // Nuevo item
+      return [...prev, { 
+        product: { ...product, price: finalPrice }, 
+        quantity: 1 
+      }];
+    });
+    setShowScanner(false);
+    setSearchQuery('');
+    setSearchResults([]);
+  };
+
   const addToCart = (code: string) => {
     const originalProduct = products.find(p => p.code === code);
     if (originalProduct) {
-      let finalPrice = originalProduct.price;
-
-      // Si no tiene precio (0), pedirlo
-      if (finalPrice === 0) {
-        const input = prompt(`El producto "${originalProduct.description}" no tiene precio. Ingrese el precio de venta:`);
-        if (input === null) return; // Cancelado
-        const parsed = parseFloat(input);
-        if (isNaN(parsed) || parsed < 0) {
-          alert('Precio inválido');
-          return;
-        }
-        finalPrice = parsed;
+      if (originalProduct.price === 0) {
+        setPendingProduct(originalProduct);
+        setPriceInputValue('');
+        setShowPriceModal(true);
+      } else {
+        executeAddToCart(originalProduct, originalProduct.price);
       }
-
-      setCart(prev => {
-        const existingIndex = prev.findIndex(item => item.product.code === code);
-        if (existingIndex >= 0) {
-          // Si ya existe, actualizamos cantidad y aseguramos que el precio sea el que estamos usando
-          // (Si el usuario ingresó un precio distinto ahora, actualizamos el precio del item)
-          const newCart = [...prev];
-          const item = newCart[existingIndex];
-          
-          // Si el precio original era 0, actualizamos con el nuevo precio ingresado
-          // Si tenía precio fijo, mantenemos el del producto original (o el que ya tenía el item)
-          // Para simplificar: si el producto original tiene precio 0, siempre actualizamos al último ingresado.
-          const priceToUpdate = originalProduct.price === 0 ? finalPrice : item.product.price;
-
-          newCart[existingIndex] = {
-            ...item,
-            quantity: item.quantity + 1,
-            product: { ...item.product, price: priceToUpdate }
-          };
-          return newCart;
-        }
-        // Nuevo item: Usamos una COPIA del producto con el precio final
-        return [...prev, { 
-          product: { ...originalProduct, price: finalPrice }, 
-          quantity: 1 
-        }];
-      });
-      setShowScanner(false);
-      setSearchQuery('');
-      setSearchResults([]);
     } else {
       alert('Producto no encontrado');
     }
   };
 
   const updatePrice = (code: string, currentPrice: number) => {
-    const input = prompt('Editar precio:', currentPrice.toString());
-    if (input === null) return;
-    const newPrice = parseFloat(input);
-    if (isNaN(newPrice) || newPrice < 0) {
+    setEditingPriceCode(code);
+    setPriceInputValue(currentPrice.toString());
+    setShowPriceModal(true);
+  };
+
+  const handlePriceConfirm = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const price = parseFloat(priceInputValue);
+    if (isNaN(price) || price < 0) {
       alert('Precio inválido');
       return;
     }
 
-    setCart(prev => prev.map(item => {
-      if (item.product.code === code) {
-        return { ...item, product: { ...item.product, price: newPrice } };
-      }
-      return item;
-    }));
+    if (pendingProduct) {
+      executeAddToCart(pendingProduct, price);
+      setPendingProduct(null);
+    } else if (editingPriceCode) {
+      setCart(prev => prev.map(item => {
+        if (item.product.code === editingPriceCode) {
+          return { ...item, product: { ...item.product, price } };
+        }
+        return item;
+      }));
+      setEditingPriceCode(null);
+    }
+    setShowPriceModal(false);
   };
 
   const removeFromCart = (code: string) => {
@@ -204,7 +223,7 @@ export default function POSInterface() {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100dvh-80px)] md:h-[calc(100vh-100px)] gap-2 md:gap-4">
+    <div className="flex flex-col h-[calc(100dvh-80px)] md:h-[calc(100vh-100px)] gap-2 md:gap-4 relative">
       {/* Top Bar: Search & Scanner */}
       <div className="flex flex-col sm:flex-row gap-2">
         <input 
@@ -285,9 +304,7 @@ export default function POSInterface() {
                   setShowCustomerResults(true);
                 }}
                 onFocus={() => {
-                  setCustomerSearchQuery(''); // Clear text to show all or let filter work? 
-                  // If we already selected one, clearing text might be annoying.
-                  // Better: If selected, keep it. If they type, it clears selected.
+                  setCustomerSearchQuery('');
                   setShowCustomerResults(true);
                 }}
                 onBlur={() => setTimeout(() => setShowCustomerResults(false), 200)}
@@ -445,6 +462,58 @@ export default function POSInterface() {
           </button>
         </div>
       </div>
+
+      {/* Price Modal */}
+      {showPriceModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-sm p-6 animate-in fade-in zoom-in duration-200">
+            <h3 className="text-lg font-bold mb-4 text-gray-800">
+              {pendingProduct 
+                ? `Ingresar precio para "${pendingProduct.description}"` 
+                : 'Editar precio'}
+            </h3>
+            
+            <form onSubmit={handlePriceConfirm}>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Precio</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2 text-gray-500">$</span>
+                  <input
+                    ref={priceInputRef}
+                    type="number"
+                    step="0.01"
+                    className="w-full border rounded pl-8 pr-3 py-2 text-lg font-bold"
+                    placeholder="0.00"
+                    value={priceInputValue}
+                    onChange={(e) => setPriceInputValue(e.target.value)}
+                    autoFocus
+                  />
+                </div>
+              </div>
+              
+              <div className="flex gap-2 justify-end">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowPriceModal(false);
+                    setPendingProduct(null);
+                    setEditingPriceCode(null);
+                  }}
+                  className="px-4 py-2 text-gray-600 bg-gray-100 rounded hover:bg-gray-200 font-medium"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-medium shadow-sm"
+                >
+                  Confirmar
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
