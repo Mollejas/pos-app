@@ -87,7 +87,7 @@ export default function POSInterface() {
     setSearchResults([]); // Clear results to disable dropdown
   };
 
-  const executeAddToCart = (product: Product, finalPrice: number) => {
+  const executeAddToCart = (product: Product, finalPrice: number, quantityToAdd: number = 1) => {
     setCart(prev => {
       const existingIndex = prev.findIndex(item => item.product.code === product.code);
       if (existingIndex >= 0) {
@@ -100,7 +100,7 @@ export default function POSInterface() {
 
         newCart[existingIndex] = {
           ...item,
-          quantity: item.quantity + 1,
+          quantity: item.quantity + quantityToAdd,
           product: { ...item.product, price: priceToUpdate }
         };
         return newCart;
@@ -108,7 +108,7 @@ export default function POSInterface() {
       // Nuevo item
       return [...prev, { 
         product: { ...product, price: finalPrice }, 
-        quantity: 1 
+        quantity: quantityToAdd 
       }];
     });
     setShowScanner(false);
@@ -119,39 +119,37 @@ export default function POSInterface() {
   const addToCart = (code: string) => {
     const originalProduct = products.find(p => p.code === code);
     if (originalProduct) {
-      if (originalProduct.price === 0) {
-        setPendingProduct(originalProduct);
-        setPriceInputValue('');
-        setShowPriceModal(true);
-      } else {
-        executeAddToCart(originalProduct, originalProduct.price);
-      }
+      setPendingProduct(originalProduct);
+      setPriceInputValue(originalProduct.price === 0 ? '' : originalProduct.price.toString());
+      setQuantityInputValue('1');
+      setShowPriceModal(true);
     } else {
       alert('Producto no encontrado');
     }
   };
 
-  const updatePrice = (code: string, currentPrice: number) => {
+  const updateItem = (code: string, currentPrice: number, currentQuantity: number) => {
     setEditingPriceCode(code);
     setPriceInputValue(currentPrice.toString());
+    setQuantityInputValue(currentQuantity.toString());
     setShowPriceModal(true);
   };
 
   const handlePriceConfirm = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const price = parseFloat(priceInputValue);
-    if (isNaN(price) || price < 0) {
-      // alert('Precio inválido'); // Removed as requested
-      return;
-    }
+    const quantity = parseFloat(quantityInputValue);
+
+    if (isNaN(price) || price < 0) return;
+    if (isNaN(quantity) || quantity <= 0) return;
 
     if (pendingProduct) {
-      executeAddToCart(pendingProduct, price);
+      executeAddToCart(pendingProduct, price, quantity);
       setPendingProduct(null);
     } else if (editingPriceCode) {
       setCart(prev => prev.map(item => {
         if (item.product.code === editingPriceCode) {
-          return { ...item, product: { ...item.product, price } };
+          return { ...item, quantity, product: { ...item.product, price } };
         }
         return item;
       }));
@@ -437,24 +435,39 @@ export default function POSInterface() {
           <div className="bg-white rounded-lg shadow-xl w-full max-w-sm p-6 animate-in fade-in zoom-in duration-200">
             <h3 className="text-lg font-bold mb-4 text-gray-800">
               {pendingProduct 
-                ? `Ingresar precio para "${pendingProduct.description}"` 
-                : 'Editar precio'}
+                ? `Agregar "${pendingProduct.description}"` 
+                : 'Editar Item'}
             </h3>
             
             <form onSubmit={handlePriceConfirm}>
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Precio</label>
-                <div className="relative">
-                  <span className="absolute left-3 top-2 text-gray-500">$</span>
+              <div className="flex gap-4 mb-4">
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Precio</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-2 text-gray-500">$</span>
+                    <input
+                      ref={priceInputRef}
+                      type="number"
+                      step="0.01"
+                      className="w-full border rounded pl-8 pr-3 py-2 text-lg font-bold"
+                      placeholder="0.00"
+                      value={priceInputValue}
+                      onChange={(e) => setPriceInputValue(e.target.value)}
+                      autoFocus
+                    />
+                  </div>
+                </div>
+
+                <div className="w-1/3">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Cant.</label>
                   <input
-                    ref={priceInputRef}
                     type="number"
-                    step="0.01"
-                    className="w-full border rounded pl-8 pr-3 py-2 text-lg font-bold"
-                    placeholder="0.00"
-                    value={priceInputValue}
-                    onChange={(e) => setPriceInputValue(e.target.value)}
-                    autoFocus
+                    step="1"
+                    className="w-full border rounded px-3 py-2 text-lg font-bold text-center"
+                    placeholder="1"
+                    value={quantityInputValue}
+                    onChange={(e) => setQuantityInputValue(e.target.value)}
+                    onFocus={(e) => e.target.select()}
                   />
                 </div>
               </div>
