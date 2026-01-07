@@ -84,17 +84,7 @@ export default function POSInterface() {
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
-    if (!query.trim()) {
-      setSearchResults([]);
-      return;
-    }
-    
-    const lowerQuery = query.toLowerCase();
-    const results = products.filter(p => 
-      p.description.toLowerCase().includes(lowerQuery) || 
-      p.code.toLowerCase().includes(lowerQuery)
-    );
-    setSearchResults(results);
+    setSearchResults([]); // Clear results to disable dropdown
   };
 
   const executeAddToCart = (product: Product, finalPrice: number) => {
@@ -151,7 +141,7 @@ export default function POSInterface() {
     if (e) e.preventDefault();
     const price = parseFloat(priceInputValue);
     if (isNaN(price) || price < 0) {
-      alert('Precio inválido');
+      // alert('Precio inválido'); // Removed as requested
       return;
     }
 
@@ -253,34 +243,12 @@ export default function POSInterface() {
 
       {showScanner && (
         <div className="border p-2 md:p-4 rounded bg-gray-100 shadow-inner">
-          <Scanner onScan={addToCart} />
+          <Scanner onScan={(code) => {
+            addToCart(code);
+            // Optional: Close scanner after scan if desired
+            // setShowScanner(false);
+          }} />
           <button onClick={() => setShowScanner(false)} className="mt-2 text-red-500 w-full text-center py-2">Cerrar Escáner</button>
-        </div>
-      )}
-
-      {/* Search Results Dropdown */}
-      {searchResults.length > 0 && (
-        <div className="bg-white border rounded p-2 shadow-lg max-h-60 overflow-y-auto z-10">
-          <h3 className="text-xs font-bold text-gray-500 uppercase mb-2">Resultados ({searchResults.length})</h3>
-          <div className="grid grid-cols-1 gap-2">
-            {searchResults.map(product => (
-              <div 
-                key={product.code} 
-                onClick={() => addToCart(product.code)}
-                className="border p-2 rounded cursor-pointer hover:bg-blue-50 flex items-center gap-3 transition-colors"
-              >
-                {product.image ? (
-                  <img src={product.image} alt={product.description} className="w-10 h-10 object-cover rounded bg-gray-100" />
-                ) : (
-                  <div className="w-10 h-10 bg-gray-200 rounded flex items-center justify-center text-[10px] text-gray-400">Sin foto</div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <div className="font-bold truncate text-sm">{product.description}</div>
-                  <div className="text-green-600 font-bold text-sm">${product.price}</div>
-                </div>
-              </div>
-            ))}
-          </div>
         </div>
       )}
 

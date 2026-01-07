@@ -124,12 +124,22 @@ export const getProducts = async (): Promise<Product[]> => {
   }
 
   const rows = await sheet.getRows();
-  return rows.map(row => ({
-    code: row.get('code'),
-    description: row.get('description'),
-    price: parseFloat(row.get('price')),
-    image: row.get('image') || '',
-  }));
+  const uniqueProducts = new Map<string, Product>();
+
+  rows.forEach(row => {
+    const code = row.get('code');
+    // Solo agregar si tiene código y no ha sido agregado antes (evitar duplicados)
+    if (code && !uniqueProducts.has(code)) {
+      uniqueProducts.set(code, {
+        code: code,
+        description: row.get('description'),
+        price: parseFloat(row.get('price')),
+        image: row.get('image') || '',
+      });
+    }
+  });
+
+  return Array.from(uniqueProducts.values());
 };
 
 export const addProduct = async (product: Product) => {
