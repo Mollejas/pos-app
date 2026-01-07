@@ -149,6 +149,22 @@ export const addProduct = async (product: Product) => {
   });
 };
 
+export const updateProduct = async (code: string, updatedProduct: Partial<Product>) => {
+  const doc = await getDoc();
+  const sheet = doc.sheetsByTitle['Productos'];
+  const rows = await sheet.getRows();
+  const row = rows.find(r => r.get('codigo') === code);
+  
+  if (row) {
+    if (updatedProduct.description) row.set('descripcion', updatedProduct.description);
+    if (updatedProduct.price) row.set('precio', updatedProduct.price);
+    if (updatedProduct.image !== undefined) row.set('imagen', updatedProduct.image);
+    await row.save();
+  } else {
+    throw new Error('Producto no encontrado');
+  }
+};
+
 export const getCustomers = async (): Promise<Customer[]> => {
   const doc = await getDoc();
   const sheet = doc.sheetsByTitle['Clientes'];
