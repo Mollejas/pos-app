@@ -380,7 +380,7 @@ export default function POSInterface() {
                           </div>
                         ) : (
                           <button 
-                            onClick={() => updatePrice(item.product.code, item.product.price)}
+                            onClick={() => updateItem(item.product.code, item.product.price, item.quantity)}
                             className="hover:bg-gray-100 px-1 rounded text-blue-600 underline decoration-dotted"
                             title="Editar precio"
                           >
