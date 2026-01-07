@@ -24,7 +24,7 @@ const getDoc = async () => {
   }
 
   const auth = getAuth();
-  // @ts-ignore: google-spreadsheet types for OAuth2Client are slightly different but compatible
+  // @ts-expect-error: google-spreadsheet types for OAuth2Client are slightly different but compatible
   const doc = new GoogleSpreadsheet(sheetId, auth);
   await doc.loadInfo();
   return doc;
