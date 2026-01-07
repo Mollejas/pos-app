@@ -1,0 +1,450 @@
+'use client';
+import { useState, useEffect } from 'react';
+import { Product, Customer, Sale, SaleDetail } from '@/lib/types';
+import Scanner from './Scanner';
+import { generateTicket } from '@/lib/pdf';
+import { Trash2, Printer, Camera, X, ChevronDown } from 'lucide-react';
+
+export default function POSInterface() {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [cart, setCart] = useState<{ product: Product; quantity: number }[]>([]);
+  const [selectedCustomer, setSelectedCustomer] = useState<string>('');
+  const [showScanner, setShowScanner] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<Product[]>([]);
+  const [customerSearchQuery, setCustomerSearchQuery] = useState('');
+  const [showCustomerResults, setShowCustomerResults] = useState(false);
+  const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
+
+  useEffect(() => {
+    // Sync filtered customers with all customers initially
+    setFilteredCustomers(customers);
+  }, [customers]);
+
+  useEffect(() => {
+    // Filter customers when query changes
+    if (!customerSearchQuery.trim()) {
+      setFilteredCustomers(customers);
+    } else {
+      const lower = customerSearchQuery.toLowerCase();
+      setFilteredCustomers(customers.filter(c => 
+        c.name.toLowerCase().includes(lower) || 
+        (c.phone && c.phone.includes(lower))
+      ));
+    }
+  }, [customerSearchQuery, customers]);
+
+  useEffect(() => {
+    fetch('/api/products')
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          setProducts(data);
+        } else {
+          console.error('Error fetching products:', data);
+          setProducts([]);
+        }
+      })
+      .catch(err => {
+        console.error('Failed to fetch products', err);
+        setProducts([]);
+      });
+
+    fetch('/api/customers')
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          setCustomers(data);
+        } else {
+          console.error('Error fetching customers:', data);
+          setCustomers([]);
+        }
+      })
+      .catch(err => {
+        console.error('Failed to fetch customers', err);
+        setCustomers([]);
+      });
+  }, []);
+
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
+    if (!query.trim()) {
+      setSearchResults([]);
+      return;
+    }
+    
+    const lowerQuery = query.toLowerCase();
+    const results = products.filter(p => 
+      p.description.toLowerCase().includes(lowerQuery) || 
+      p.code.toLowerCase().includes(lowerQuery)
+    );
+    setSearchResults(results);
+  };
+
+  const addToCart = (code: string) => {
+    const originalProduct = products.find(p => p.code === code);
+    if (originalProduct) {
+      let finalPrice = originalProduct.price;
+
+      // Si no tiene precio (0), pedirlo
+      if (finalPrice === 0) {
+        const input = prompt(`El producto "${originalProduct.description}" no tiene precio. Ingrese el precio de venta:`);
+        if (input === null) return; // Cancelado
+        const parsed = parseFloat(input);
+        if (isNaN(parsed) || parsed < 0) {
+          alert('Precio inválido');
+          return;
+        }
+        finalPrice = parsed;
+      }
+
+      setCart(prev => {
+        const existingIndex = prev.findIndex(item => item.product.code === code);
+        if (existingIndex >= 0) {
+          // Si ya existe, actualizamos cantidad y aseguramos que el precio sea el que estamos usando
+          // (Si el usuario ingresó un precio distinto ahora, actualizamos el precio del item)
+          const newCart = [...prev];
+          const item = newCart[existingIndex];
+          
+          // Si el precio original era 0, actualizamos con el nuevo precio ingresado
+          // Si tenía precio fijo, mantenemos el del producto original (o el que ya tenía el item)
+          // Para simplificar: si el producto original tiene precio 0, siempre actualizamos al último ingresado.
+          const priceToUpdate = originalProduct.price === 0 ? finalPrice : item.product.price;
+
+          newCart[existingIndex] = {
+            ...item,
+            quantity: item.quantity + 1,
+            product: { ...item.product, price: priceToUpdate }
+          };
+          return newCart;
+        }
+        // Nuevo item: Usamos una COPIA del producto con el precio final
+        return [...prev, { 
+          product: { ...originalProduct, price: finalPrice }, 
+          quantity: 1 
+        }];
+      });
+      setShowScanner(false);
+      setSearchQuery('');
+      setSearchResults([]);
+    } else {
+      alert('Producto no encontrado');
+    }
+  };
+
+  const updatePrice = (code: string, currentPrice: number) => {
+    const input = prompt('Editar precio:', currentPrice.toString());
+    if (input === null) return;
+    const newPrice = parseFloat(input);
+    if (isNaN(newPrice) || newPrice < 0) {
+      alert('Precio inválido');
+      return;
+    }
+
+    setCart(prev => prev.map(item => {
+      if (item.product.code === code) {
+        return { ...item, product: { ...item.product, price: newPrice } };
+      }
+      return item;
+    }));
+  };
+
+  const removeFromCart = (code: string) => {
+    setCart(prev => prev.filter(item => item.product.code !== code));
+  };
+
+  const total = cart.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
+
+  const handleCheckout = async () => {
+    if (cart.length === 0) return;
+    setLoading(true);
+
+    const saleData = {
+      sale: {
+        date: new Date().toISOString(),
+        customerId: selectedCustomer || 'PUBLICO GENERAL',
+        total
+      },
+      details: cart.map(item => ({
+        productCode: item.product.code,
+        quantity: item.quantity,
+        price: item.product.price,
+        subtotal: item.product.price * item.quantity
+      }))
+    };
+
+    try {
+      const res = await fetch('/api/sales', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(saleData)
+      });
+      const data = await res.json();
+      
+      if (data.success) {
+        // Generate PDF
+        const sale: Sale = { ...saleData.sale, folio: data.folio };
+        const details: SaleDetail[] = saleData.details.map(d => ({ ...d, folio: data.folio }));
+        generateTicket(sale, details, products);
+        
+        // Reset
+        setCart([]);
+        alert(`Venta guardada con Folio: ${data.folio}`);
+      } else {
+        alert('Error al guardar la venta');
+      }
+    } catch (error) {
+      console.error(error);
+      alert('Error de conexión');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col h-[calc(100dvh-80px)] md:h-[calc(100vh-100px)] gap-2 md:gap-4">
+      {/* Top Bar: Search & Scanner */}
+      <div className="flex flex-col sm:flex-row gap-2">
+        <input 
+          type="text" 
+          placeholder="Escanear código o buscar..." 
+          className="flex-1 border p-3 rounded text-base md:text-lg shadow-sm w-full"
+          value={searchQuery}
+          onChange={(e) => handleSearch(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              const exactMatch = products.find(p => p.code === searchQuery);
+              if (exactMatch) {
+                addToCart(exactMatch.code);
+              } else if (searchResults.length === 1) {
+                addToCart(searchResults[0].code);
+              }
+            }
+          }}
+        />
+        <button 
+          onClick={() => setShowScanner(!showScanner)}
+          className="bg-blue-600 text-white px-4 py-3 rounded font-bold shadow-sm hover:bg-blue-700 flex items-center justify-center gap-2 sm:w-auto w-full"
+        >
+          <Camera size={20} /> <span className="sm:inline">Escanear</span>
+        </button>
+      </div>
+
+      {showScanner && (
+        <div className="border p-2 md:p-4 rounded bg-gray-100 shadow-inner">
+          <Scanner onScan={addToCart} />
+          <button onClick={() => setShowScanner(false)} className="mt-2 text-red-500 w-full text-center py-2">Cerrar Escáner</button>
+        </div>
+      )}
+
+      {/* Search Results Dropdown */}
+      {searchResults.length > 0 && (
+        <div className="bg-white border rounded p-2 shadow-lg max-h-60 overflow-y-auto z-10">
+          <h3 className="text-xs font-bold text-gray-500 uppercase mb-2">Resultados ({searchResults.length})</h3>
+          <div className="grid grid-cols-1 gap-2">
+            {searchResults.map(product => (
+              <div 
+                key={product.code} 
+                onClick={() => addToCart(product.code)}
+                className="border p-2 rounded cursor-pointer hover:bg-blue-50 flex items-center gap-3 transition-colors"
+              >
+                {product.image ? (
+                  <img src={product.image} alt={product.description} className="w-10 h-10 object-cover rounded bg-gray-100" />
+                ) : (
+                  <div className="w-10 h-10 bg-gray-200 rounded flex items-center justify-center text-[10px] text-gray-400">Sin foto</div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <div className="font-bold truncate text-sm">{product.description}</div>
+                  <div className="text-green-600 font-bold text-sm">${product.price}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Main Area: The Cart */}
+      <div className="flex-1 bg-white border rounded shadow-md flex flex-col overflow-hidden">
+        {/* Cart Header */}
+        <div className="p-3 border-b bg-gray-50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+          <h2 className="text-lg font-bold text-gray-800">Lista de Captura</h2>
+          
+          {/* Customer Searchable Dropdown */}
+          <div className="relative w-full sm:w-72">
+            <div className="flex items-center border rounded bg-white relative">
+              <input
+                type="text"
+                placeholder="Buscar Cliente..."
+                className="w-full p-2 text-sm rounded outline-none"
+                value={selectedCustomer ? selectedCustomer : customerSearchQuery}
+                onChange={(e) => {
+                  setSelectedCustomer(''); // Clear selection when typing
+                  setCustomerSearchQuery(e.target.value);
+                  setShowCustomerResults(true);
+                }}
+                onFocus={() => {
+                  setCustomerSearchQuery(''); // Clear text to show all or let filter work? 
+                  // If we already selected one, clearing text might be annoying.
+                  // Better: If selected, keep it. If they type, it clears selected.
+                  setShowCustomerResults(true);
+                }}
+                onBlur={() => setTimeout(() => setShowCustomerResults(false), 200)}
+              />
+              {selectedCustomer ? (
+                 <button 
+                   onClick={() => {
+                     setSelectedCustomer('');
+                     setCustomerSearchQuery('');
+                   }}
+                   className="p-2 text-gray-400 hover:text-red-500"
+                 >
+                   <X size={16} />
+                 </button>
+              ) : (
+                 <div className="p-2 text-gray-400">
+                   <ChevronDown size={16} />
+                 </div>
+              )}
+            </div>
+
+            {/* Results List */}
+            {showCustomerResults && (
+              <div className="absolute top-full left-0 w-full bg-white border rounded shadow-xl max-h-60 overflow-y-auto z-20 mt-1">
+                <div 
+                  className="p-2 hover:bg-gray-100 cursor-pointer text-sm font-bold text-gray-600 border-b"
+                  onClick={() => {
+                    setSelectedCustomer('');
+                    setCustomerSearchQuery('');
+                    setShowCustomerResults(false);
+                  }}
+                >
+                  Público General
+                </div>
+                {filteredCustomers.length === 0 ? (
+                  <div className="p-2 text-sm text-gray-400">No se encontraron clientes</div>
+                ) : (
+                  filteredCustomers.map(c => (
+                    <div 
+                      key={c.id} 
+                      className="p-2 hover:bg-blue-50 cursor-pointer text-sm border-b last:border-0"
+                      onClick={() => {
+                        setSelectedCustomer(c.name);
+                        setCustomerSearchQuery(''); // We use selectedCustomer for display
+                        setShowCustomerResults(false);
+                      }}
+                    >
+                      <div className="font-bold">{c.name}</div>
+                      {c.phone && <div className="text-xs text-gray-500">{c.phone}</div>}
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Cart Items List */}
+        <div className="flex-1 overflow-y-auto p-2 md:p-4 space-y-2 bg-gray-50/30">
+          {cart.length === 0 ? (
+            <div className="h-full flex flex-col items-center justify-center text-gray-400 p-4 text-center">
+              <p className="text-xl mb-2">Carrito vacío</p>
+              <p className="text-sm">Escanea o busca un producto</p>
+            </div>
+          ) : (
+            cart.map((item, idx) => (
+              <div key={idx} className="bg-white p-2 rounded border shadow-sm flex items-start gap-3 animate-in fade-in slide-in-from-bottom-2 relative">
+                {/* Product Image */}
+                <div className="flex-shrink-0">
+                  {item.product.image ? (
+                    <img src={item.product.image} alt={item.product.description} className="w-16 h-16 object-cover rounded border" />
+                  ) : (
+                    <div className="w-16 h-16 bg-gray-100 rounded border flex items-center justify-center text-gray-400 text-[10px] text-center p-1">Sin Imagen</div>
+                  )}
+                </div>
+
+                {/* Product Details */}
+                <div className="flex-1 min-w-0">
+                  <div className="font-bold text-sm md:text-base text-gray-800 line-clamp-2 leading-tight mb-1">{item.product.description}</div>
+                  <div className="text-xs text-gray-500 font-mono mb-1">{item.product.code}</div>
+                  
+                  {/* Quantity & Price - Mobile Optimized */}
+                  <div className="flex justify-between items-end mt-1">
+                     <div className="text-xs text-gray-600 flex items-center gap-2">
+                        <span className="bg-gray-100 px-2 py-1 rounded">Cant: {item.quantity}</span> 
+                        {item.product.price === 0 || item.product.description.includes('(Abierto)') ? (
+                          <div className="flex items-center gap-1">
+                            <span>x $</span>
+                            <input
+                              type="number"
+                              className="w-20 border rounded px-1 py-0.5 text-sm"
+                              value={item.product.price === 0 ? '' : item.product.price}
+                              placeholder="0.00"
+                              onChange={(e) => {
+                                const val = parseFloat(e.target.value);
+                                if (!isNaN(val) && val >= 0) {
+                                  // Update price directly
+                                  setCart(prev => prev.map(pItem => 
+                                    pItem.product.code === item.product.code 
+                                      ? { ...pItem, product: { ...pItem.product, price: val } }
+                                      : pItem
+                                  ));
+                                }
+                              }}
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          </div>
+                        ) : (
+                          <button 
+                            onClick={() => updatePrice(item.product.code, item.product.price)}
+                            className="hover:bg-gray-100 px-1 rounded text-blue-600 underline decoration-dotted"
+                            title="Editar precio"
+                          >
+                            x ${item.product.price}
+                          </button>
+                        )}
+                     </div>
+                     <div className="font-bold text-lg text-blue-600">
+                        ${(item.quantity * item.product.price).toFixed(2)}
+                     </div>
+                  </div>
+                </div>
+
+                {/* Delete Action - Absolute position for cleaner look on mobile */}
+                <button 
+                  onClick={() => removeFromCart(item.product.code)}
+                  className="text-red-400 hover:text-red-600 p-1 -mt-1 -mr-1"
+                  title="Eliminar"
+                >
+                  <Trash2 size={18} />
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Footer: Totals & Checkout */}
+        <div className="p-3 bg-white border-t shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] z-10">
+          <div className="flex justify-between items-center mb-3">
+            <span className="text-gray-600 font-medium">Total:</span>
+            <span className="text-3xl font-bold text-green-700">${total.toFixed(2)}</span>
+          </div>
+          
+          <button 
+            onClick={handleCheckout}
+            disabled={loading || cart.length === 0}
+            className="w-full bg-green-600 text-white p-3 rounded-lg font-bold text-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2 transition-colors shadow-lg active:scale-95"
+          >
+            {loading ? 'Procesando...' : (
+              <>
+                <Printer size={20} />
+                <span>Cobrar</span>
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
