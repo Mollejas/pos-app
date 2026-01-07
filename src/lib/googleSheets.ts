@@ -153,12 +153,12 @@ export const updateProduct = async (code: string, updatedProduct: Partial<Produc
   const doc = await getDoc();
   const sheet = doc.sheetsByTitle['Productos'];
   const rows = await sheet.getRows();
-  const row = rows.find(r => r.get('codigo') === code);
+  const row = rows.find(r => r.get('code') === code);
   
   if (row) {
-    if (updatedProduct.description) row.set('descripcion', updatedProduct.description);
-    if (updatedProduct.price) row.set('precio', updatedProduct.price);
-    if (updatedProduct.image !== undefined) row.set('imagen', updatedProduct.image);
+    if (updatedProduct.description) row.set('description', updatedProduct.description);
+    if (updatedProduct.price) row.set('price', updatedProduct.price);
+    if (updatedProduct.image !== undefined) row.set('image', updatedProduct.image);
     await row.save();
   } else {
     throw new Error('Producto no encontrado');
