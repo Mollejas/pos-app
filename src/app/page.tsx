@@ -9,6 +9,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    console.log('Build Timestamp: ', new Date().toISOString()); // Trace build
     const user = localStorage.getItem('user');
     if (!user) {
       router.push('/login');
@@ -21,7 +22,7 @@ export default function Home() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-6">VENTA</h1>
+      <h1 className="text-2xl font-bold mb-6">VENTA <span className="text-sm font-normal text-gray-500">(v1.1 - Updated)</span></h1>
       <POSInterface />
     </div>
   );
