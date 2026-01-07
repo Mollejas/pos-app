@@ -110,7 +110,7 @@ export default function UsersPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">
-      <h1 className="text-2xl font-bold">Gestión de Usuarios</h1>
+      <h1 className="text-2xl font-bold">Gestión de Usuarios 👥</h1>
 
       {/* Formulario de creación/edición */}
       <div className="bg-white p-6 rounded shadow">
