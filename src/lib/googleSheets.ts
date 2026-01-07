@@ -247,3 +247,33 @@ export const addUser = async (user: User) => {
     numeroalmacen: user.numeroalmacen
   });
 };
+
+export const updateUser = async (email: string, updatedUser: Partial<User>) => {
+  const doc = await getDoc();
+  const sheet = doc.sheetsByTitle['Usuarios'];
+  const rows = await sheet.getRows();
+  const row = rows.find(r => r.get('email') === email);
+  
+  if (row) {
+    if (updatedUser.email) row.set('email', updatedUser.email);
+    if (updatedUser.password) row.set('password', updatedUser.password);
+    if (updatedUser.role) row.set('role', updatedUser.role);
+    if (updatedUser.numeroalmacen) row.set('numeroalmacen', updatedUser.numeroalmacen);
+    await row.save();
+  } else {
+    throw new Error('Usuario no encontrado');
+  }
+};
+
+export const deleteUser = async (email: string) => {
+  const doc = await getDoc();
+  const sheet = doc.sheetsByTitle['Usuarios'];
+  const rows = await sheet.getRows();
+  const row = rows.find(r => r.get('email') === email);
+  
+  if (row) {
+    await row.delete();
+  } else {
+    throw new Error('Usuario no encontrado');
+  }
+};

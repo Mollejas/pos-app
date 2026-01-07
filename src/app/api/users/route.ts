@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getUsers, addUser, initializeSheets } from '@/lib/googleSheets';
+import { getUsers, addUser, updateUser, deleteUser, initializeSheets } from '@/lib/googleSheets';
 
 export async function GET() {
   try {
@@ -40,6 +40,48 @@ export async function POST(request: Request) {
   } catch (error: any) {
     return NextResponse.json(
       { error: error.message || 'Error al crear usuario' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PUT(request: Request) {
+  try {
+    const body = await request.json();
+    const { email, ...updates } = body;
+
+    if (!email) {
+      return NextResponse.json({ error: 'Email requerido' }, { status: 400 });
+    }
+
+    await initializeSheets();
+    await updateUser(email, updates);
+
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error.message || 'Error al actualizar usuario' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const email = searchParams.get('email');
+
+    if (!email) {
+      return NextResponse.json({ error: 'Email requerido' }, { status: 400 });
+    }
+
+    await initializeSheets();
+    await deleteUser(email);
+
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error.message || 'Error al eliminar usuario' },
       { status: 500 }
     );
   }
