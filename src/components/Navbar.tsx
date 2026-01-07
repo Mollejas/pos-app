@@ -31,7 +31,7 @@ export default function Navbar() {
     return (
       <nav className="bg-gray-800 p-4 text-white">
         <div className="container mx-auto flex justify-center">
-          <h1 className="text-xl font-bold">REMISIONES JC LIDER MUNDIAL</h1>
+          <h1 className="text-xl font-bold">REMISIONES JC LIDER MUNDIAL <span className="text-xs font-normal text-gray-400">v1.1</span></h1>
         </div>
       </nav>
     );
@@ -40,7 +40,7 @@ export default function Navbar() {
   return (
     <nav className="bg-gray-800 p-4 text-white">
       <div className="container mx-auto flex flex-col sm:flex-row justify-between items-center gap-4 sm:gap-0">
-        <h1 className="text-xl font-bold">REMISIONES JC LIDER MUNDIAL</h1>
+        <h1 className="text-xl font-bold">REMISIONES JC LIDER MUNDIAL <span className="text-xs font-normal text-gray-400">v1.1</span></h1>
         
         {user && (
           <div className="flex flex-col sm:flex-row items-center gap-4">
