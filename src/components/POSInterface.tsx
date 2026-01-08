@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import { Product, Customer, Sale, SaleDetail } from '@/lib/types';
+import { formatCurrency } from '@/lib/utils';
 import Scanner from './Scanner';
 import { generateTicket } from '@/lib/pdf';
 import { Trash2, Printer, Camera, X, ChevronDown } from 'lucide-react';

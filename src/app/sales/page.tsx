@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Sale, SaleDetail, Product } from '@/lib/types';
+import { formatCurrency } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 import { X, Loader2, Eye } from 'lucide-react';
 

@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { Product } from '@/lib/types';
+import { formatCurrency } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 
 export default function ProductsPage() {
