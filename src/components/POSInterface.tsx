@@ -6,15 +6,6 @@ import { generateTicket } from '@/lib/pdf';
 import { Trash2, Printer, Camera, X, ChevronDown } from 'lucide-react';
 
 export default function POSInterface() {
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('es-MX', {
-      style: 'currency',
-      currency: 'MXN',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(amount);
-  };
-
   const [products, setProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [cart, setCart] = useState<{ product: Product; quantity: number }[]>([]);
@@ -421,7 +412,7 @@ export default function POSInterface() {
         <div className="p-3 bg-white border-t shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] z-10">
           <div className="flex justify-between items-center mb-3">
             <span className="text-gray-600 font-medium">Total:</span>
-            <span className="text-3xl font-bold text-green-700">${total.toFixed(2)}</span>
+            <span className="text-3xl font-bold text-green-700">{formatCurrency(total)}</span>
           </div>
           
           <button 

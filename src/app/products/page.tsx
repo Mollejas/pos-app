@@ -5,14 +5,6 @@ import { useRouter } from 'next/navigation';
 
 export default function ProductsPage() {
   const router = useRouter();
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('es-MX', {
-      style: 'currency',
-      currency: 'MXN',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(amount);
-  };
   const [products, setProducts] = useState<Product[]>([]);
   const [form, setForm] = useState<Product>({ code: '', description: '', price: 0, image: '' });
   const [loading, setLoading] = useState(false);

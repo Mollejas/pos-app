@@ -14,15 +14,6 @@ export default function SalesListPage() {
   const [details, setDetails] = useState<SaleDetail[]>([]);
   const [loadingDetails, setLoadingDetails] = useState(false);
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('es-MX', {
-      style: 'currency',
-      currency: 'MXN',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(amount);
-  };
-
   useEffect(() => {
     const user = localStorage.getItem('user');
     if (!user) {

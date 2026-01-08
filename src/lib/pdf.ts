@@ -1,15 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Sale, SaleDetail, Product } from './types';
-
-const formatCurrency = (amount: number) => {
-  return new Intl.NumberFormat('es-MX', {
-    style: 'currency',
-    currency: 'MXN',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  }).format(amount);
-};
+import { formatCurrency } from './utils';
 
 export const generateTicket = (sale: Sale, details: SaleDetail[], products: Product[]) => {
   const doc = new jsPDF({
