@@ -2,6 +2,15 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Sale, SaleDetail, Product } from './types';
 
+const formatCurrency = (amount: number) => {
+  return new Intl.NumberFormat('es-MX', {
+    style: 'currency',
+    currency: 'MXN',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(amount);
+};
+
 export const generateTicket = (sale: Sale, details: SaleDetail[], products: Product[]) => {
   const doc = new jsPDF({
     orientation: 'portrait',
@@ -23,7 +32,7 @@ export const generateTicket = (sale: Sale, details: SaleDetail[], products: Prod
       product?.image || '', // Column 0: Image
       product?.description || d.productCode, // Column 1: Desc
       d.quantity.toString(), // Column 2: Cant
-      `$${d.subtotal}` // Column 3: Total
+      formatCurrency(d.subtotal) // Column 3: Total
     ];
   });
 
@@ -64,7 +73,7 @@ export const generateTicket = (sale: Sale, details: SaleDetail[], products: Prod
 
   const finalY = (doc as any).lastAutoTable.finalY || 40;
   
-  doc.text(`Total: $${sale.total.toFixed(2)}`, 40, finalY + 10, { align: 'right' });
+  doc.text(`Total: ${formatCurrency(sale.total)}`, 40, finalY + 10, { align: 'right' });
   
   doc.save(`ticket-${sale.folio}.pdf`);
 };

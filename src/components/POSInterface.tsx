@@ -6,6 +6,15 @@ import { generateTicket } from '@/lib/pdf';
 import { Trash2, Printer, Camera, X, ChevronDown } from 'lucide-react';
 
 export default function POSInterface() {
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('es-MX', {
+      style: 'currency',
+      currency: 'MXN',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(amount);
+  };
+
   const [products, setProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [cart, setCart] = useState<{ product: Product; quantity: number }[]>([]);
@@ -21,6 +30,7 @@ export default function POSInterface() {
   // State for Price Modal
   const [showPriceModal, setShowPriceModal] = useState(false);
   const [priceInputValue, setPriceInputValue] = useState('');
+  const [quantityInputValue, setQuantityInputValue] = useState('1');
   const [pendingProduct, setPendingProduct] = useState<Product | null>(null);
   const [editingPriceCode, setEditingPriceCode] = useState<string | null>(null);
   const priceInputRef = useRef<HTMLInputElement>(null);
@@ -384,7 +394,7 @@ export default function POSInterface() {
                             className="hover:bg-gray-100 px-1 rounded text-blue-600 underline decoration-dotted"
                             title="Editar precio"
                           >
-                            x ${item.product.price}
+                            x {formatCurrency(item.product.price)}
                           </button>
                         )}
                      </div>

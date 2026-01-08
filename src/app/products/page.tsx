@@ -5,6 +5,14 @@ import { useRouter } from 'next/navigation';
 
 export default function ProductsPage() {
   const router = useRouter();
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('es-MX', {
+      style: 'currency',
+      currency: 'MXN',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(amount);
+  };
   const [products, setProducts] = useState<Product[]>([]);
   const [form, setForm] = useState<Product>({ code: '', description: '', price: 0, image: '' });
   const [loading, setLoading] = useState(false);
@@ -263,7 +271,7 @@ export default function ProductsPage() {
                 
                 <div className="flex items-center justify-between sm:justify-end gap-6 w-full sm:w-auto pl-[80px] sm:pl-0">
                   <div className="text-green-600 font-bold text-xl">
-                    ${Number(p.price).toFixed(2)}
+                    {formatCurrency(Number(p.price))}
                   </div>
                   <button
                     onClick={() => handleEdit(p)}

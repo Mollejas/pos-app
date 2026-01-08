@@ -243,6 +243,38 @@ export const createSale = async (sale: Omit<Sale, 'folio'>, details: Omit<SaleDe
   return folio;
 };
 
+export const getSales = async (): Promise<Sale[]> => {
+  const doc = await getDoc();
+  const sheet = doc.sheetsByTitle['Ventas'];
+  const rows = await sheet.getRows();
+  
+  return rows.map(row => ({
+    folio: parseInt(row.get('folio')),
+    date: row.get('date'),
+    customerId: row.get('customerId'),
+    total: parseFloat(row.get('total'))
+  })).sort((a, b) => b.folio - a.folio); // Sort by folio desc
+};
+
+export const getSaleDetails = async (folio?: number): Promise<SaleDetail[]> => {
+  const doc = await getDoc();
+  const sheet = doc.sheetsByTitle['DetalleVentas'];
+  const rows = await sheet.getRows();
+  
+  const allDetails = rows.map(row => ({
+    folio: parseInt(row.get('folio')),
+    productCode: row.get('productCode'),
+    quantity: parseFloat(row.get('quantity')),
+    price: parseFloat(row.get('price')),
+    subtotal: parseFloat(row.get('subtotal'))
+  }));
+
+  if (folio) {
+    return allDetails.filter(d => d.folio === folio);
+  }
+  return allDetails;
+};
+
 export const getUsers = async (): Promise<User[]> => {
   const doc = await getDoc();
   const sheet = doc.sheetsByTitle['Usuarios'];

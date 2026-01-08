@@ -40,12 +40,13 @@ export default function Navbar() {
   return (
     <nav className="bg-gray-800 p-4 text-white">
       <div className="container mx-auto flex flex-col sm:flex-row justify-between items-center gap-4 sm:gap-0">
-        <h1 className="text-xl font-bold">REMISIONES JC LIDER MUNDIAL <span className="text-xs font-normal text-gray-400">v1.1</span></h1>
+        <h1 className="text-xl font-bold">REMISIONES JC LIDER MUNDIAL <span className="text-xs font-normal text-gray-400">v1.2</span></h1>
         
         {user && (
           <div className="flex flex-col sm:flex-row items-center gap-4">
             <div className="space-x-4 flex items-center">
               <Link href="/" className={`hover:text-gray-300 ${pathname === '/' ? 'text-blue-400' : ''}`}>Venta</Link>
+              <Link href="/sales" className={`hover:text-gray-300 ${pathname === '/sales' ? 'text-blue-400' : ''}`}>Listado</Link>
               <Link href="/products" className={`hover:text-gray-300 ${pathname === '/products' ? 'text-blue-400' : ''}`}>Productos</Link>
               <Link href="/customers" className={`hover:text-gray-300 ${pathname === '/customers' ? 'text-blue-400' : ''}`}>Clientes</Link>
               
